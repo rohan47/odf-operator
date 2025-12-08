@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	configv1 "github.com/openshift/api/config/v1"
+	opv1a1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,6 +33,7 @@ import (
 
 	"github.com/red-hat-storage/odf-operator/console"
 	"github.com/red-hat-storage/odf-operator/pkg/util"
+	uxbackend "github.com/red-hat-storage/odf-operator/ux-backend"
 )
 
 // ClusterVersionReconciler reconciles a ClusterVersion object
@@ -61,6 +63,11 @@ func (r *ClusterVersionReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 	if err := r.ensureConsolePlugin(ctx, ocpVersion); err != nil {
 		logger.Error(err, "Could not ensure compatibility for ODF consolePlugin")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.ensureUXBackendServer(ctx); err != nil {
+		logger.Error(err, "Could not ensure UX backend server")
 		return ctrl.Result{}, err
 	}
 
@@ -162,6 +169,48 @@ func (r *ClusterVersionReconciler) ensureConsolePlugin(ctx context.Context, clus
 	})
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
+	}
+
+	return nil
+}
+
+func (r *ClusterVersionReconciler) ensureUXBackendServer(ctx context.Context) error {
+	odfCsvName, err := util.GetConditionName(r.Client)
+	if err != nil {
+		return fmt.Errorf("failed to get ODF CSV name: %w", err)
+	}
+	odfCsv := &opv1a1.ClusterServiceVersion{}
+	odfCsv.Name = odfCsvName
+	odfCsv.Namespace = OperatorNamespace
+	if err := r.Client.Get(ctx, types.NamespacedName{
+		Name:      odfCsv.Name,
+		Namespace: odfCsv.Namespace,
+	}, odfCsv); err != nil {
+		return fmt.Errorf("failed to get ODF CSV %s/%s: %w", odfCsv.Namespace, odfCsv.Name, err)
+	}
+
+	uxBackendServerDeployment := uxbackend.GetUXBackendServerDeployment(OperatorNamespace)
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, uxBackendServerDeployment, func() error {
+		return controllerutil.SetControllerReference(odfCsv, uxBackendServerDeployment, r.Scheme)
+	})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to create or update UX backend server deployment: %w", err)
+	}
+
+	uxBackendServerSecret := uxbackend.GetUXBackendServerSecret(OperatorNamespace)
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, uxBackendServerSecret, func() error {
+		return controllerutil.SetControllerReference(uxBackendServerDeployment, uxBackendServerSecret, r.Scheme)
+	})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to create or update UX backend server secret: %w", err)
+	}
+
+	uxBackendServerService := uxbackend.GetUXBackendServerService(OperatorNamespace)
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, uxBackendServerService, func() error {
+		return controllerutil.SetControllerReference(uxBackendServerDeployment, uxBackendServerService, r.Scheme)
+	})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to create or update UX backend server service: %w", err)
 	}
 
 	return nil

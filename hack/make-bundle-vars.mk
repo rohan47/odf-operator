@@ -97,6 +97,8 @@ OCS_BUNDLE_VERSION ?= v4.20.0
 OCS_SUBSCRIPTION_PACKAGE ?= ocs-operator
 OCS_SUBSCRIPTION_CHANNEL ?= alpha
 OCS_SUBSCRIPTION_CSVNAME ?= $(OCS_SUBSCRIPTION_PACKAGE).$(OCS_BUNDLE_VERSION)
+UX_BACKEND_SERVER_IMAGE ?= quay.io/ocs-dev/ocs-operator:latest
+UX_BACKEND_OAUTH_IMAGE ?= quay.io/openshift/origin-oauth-proxy:4.20.0
 
 OCS_CLIENT_BUNDLE_IMG ?= quay.io/ocs-dev/ocs-client-operator-bundle:main-6f2fc63
 OCS_CLIENT_BUNDLE_VERSION ?= v4.20.0
