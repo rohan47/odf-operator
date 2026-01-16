@@ -16,7 +16,7 @@ spec:
         - name: UX_BACKEND_OAUTH_IMAGE
           value: quay.io/openshift/origin-oauth-proxy:4.20.0
         - name: DEVICEFINDER_IMAGE
-          value: quay.io/ocs-dev/odf-devicefinder:latest
+          value: quay.io/ocs-dev/devicefinder:latest
         - name: ONBOARDING_TOKEN_LIFETIME
         - name: UX_BACKEND_PORT
         - name: TLS_ENABLED
